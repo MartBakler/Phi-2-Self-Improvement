@@ -1,0 +1,5 @@
+datasets==2.15.0
+torch
+vllm
+pynvml
+
