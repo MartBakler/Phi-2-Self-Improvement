@@ -16,7 +16,7 @@ NB: The original numbers Phi-2 reported from the paper are using code generation
 |Original Phi 2 model| 5-shot, best of 16 | 47%                |
 |Original Phi 2 model| 5-shot, best of 1  | 20%                |
 |Finetune iteration 1| 0-shot, best of 16 | 87%                |
-|Finetune iteration 1| 5-shot, best of 1  | 55%                |
+|Finetune iteration 1| 0-shot, best of 1  | 55%                |
 |Finetune iteration 2| 0-shot, best of 16 | 63%                |
 
 
