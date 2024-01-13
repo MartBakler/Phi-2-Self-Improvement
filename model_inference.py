@@ -1,9 +1,3 @@
-"""
-pip installs
-pip install vllm
-pip install datasets
-"""
-
 from vllm import LLM, SamplingParams
 from data_utils import load_gsm8k_data
 from reward_utils import get_reward
