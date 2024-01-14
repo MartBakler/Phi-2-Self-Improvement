@@ -1,5 +1,5 @@
 from vllm import LLM, SamplingParams
-from data_utils import load_gsm8k_data
+from data_utils import load_gsm8k_data, load_prompt
 from reward_utils import get_reward
 import json
 import os
@@ -17,7 +17,7 @@ class Generator:
               model_name : str,
               mode : str = "eval"):
       self.prompt_path = prompt_path
-      self.prompt = self._load_prompt()
+      self.prompt = self.load_prompt(prompt_path)
       self.model = LLM(model=model_name,
           trust_remote_code=True
           )
@@ -35,11 +35,6 @@ class Generator:
                                     top_k = 40,
                                     temperature = 0.7,
                                     n = 16)
-
-  def _load_prompt(self):
-      with open(self.prompt_path, "r", encoding = "utf-8") as f:
-          prompt = f.read()
-      return prompt
   
   def _generate(self, prompts):
       outputs = self.model.generate(prompts,
