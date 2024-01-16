@@ -10,19 +10,18 @@ from pynvml import *
 nvmlInit()
 h = nvmlDeviceGetHandleByIndex(0)
 
-
 class Generator:
   def __init__(self,
               prompt_path : str,
               model_name : str,
               mode : str = "eval"):
       self.prompt_path = prompt_path
-      self.prompt = self.load_prompt(prompt_path)
+      self.prompt = load_prompt(prompt_path)
       self.model = LLM(model=model_name,
           trust_remote_code=True
           )
       self.mode = mode
-      self.batch_size = 8 # specify generation batch size
+      self.batch_size = 16 # specify generation batch size
       if mode == "eval":
          self.sampling_params = SamplingParams(max_tokens=384,
                                     top_k = 40,
@@ -55,7 +54,7 @@ class Generator:
     return outputs, total_time
     
     
-def main(data_path,
+def run_inference(data_path,
         model_name,
         prompt_path, 
         mode = "eval",
@@ -134,16 +133,3 @@ def main(data_path,
   print(f"Average request time {sum(times)/len(times)}")
   print(f"Time per datapoint {sum(times)/(datapoint_end_idx - datapoint_start_idx)}")
   print(f"Tokens per second {sum(tokens_per_sec)/len(tokens_per_sec)}")
-
-
-if __name__ == "__main__":
-    data_path = "data_where_you_saved_the_data.jsonl"
-    model_name = "some_model_name"
-    prompt_path = "prompts/finetuned_prompt.txt"
-    main(data_path,
-        model_name,
-        prompt_path,
-        mode = "eval",
-        datapoint_start_idx = 0,
-        datapoint_end_idx = 100,
-        )

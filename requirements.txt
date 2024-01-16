@@ -1,5 +1,5 @@
 datasets==2.15.0
 torch
-vllm
+git+https://github.com/vllm-project/vllm.git@main
 pynvml
 
