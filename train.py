@@ -15,34 +15,31 @@ import torch.nn.functional as F
 from transformers import get_scheduler
 from tqdm import tqdm
 import torch
+from peft import prepare_model_for_kbit_training, LoraConfig, get_peft_model
+
+#TODO
+# wandb, model saving and uplodaing in fp16
+
 
 HF_TOKEN = ""
+
+def print_trainable_parameters(model):
+    """
+    Prints the number of trainable parameters in the model.
+    """
+    trainable_params = 0
+    all_param = 0
+    for _, param in model.named_parameters():
+        all_param += param.numel()
+        if param.requires_grad:
+            trainable_params += param.numel()
+    print(
+        f"trainable params: {trainable_params} || all params: {all_param} || trainable%: {100 * trainable_params / all_param}"
+    )
+
+
 # login into wandb with wandb login
-class TrainingArgs:
-    def __init__(self,
-                 per_device_train_batch_size = 4,
-                 gradient_accumulation_steps = 10,
-                 learning_rate = 2e-5,
-                 weight_decay = 0.01,
-                 num_train_epochs = 1,
-                 eval_steps = 1000000,
-                 lora_r = 128,
-                 lora_alpha = 256,
-                 lora_target_modules = [
-                     "Wqkv",
-                     "out_proj",
-                 ],
-                 dpo_beta = 0.1):
-        self.per_device_train_batch_size = per_device_train_batch_size
-        self.gradient_accumulation_steps = gradient_accumulation_steps
-        self.learning_rate = learning_rate
-        self.weight_decay = weight_decay
-        self.num_train_epochs = num_train_epochs
-        self.eval_steps = eval_steps
-        self.lora_r = lora_r
-        self.lora_alpha = lora_alpha
-        self.lora_target_modules = lora_target_modules
-        self.dpo_beta = dpo_beta
+
 
 class Trainer:
     def __init__(self,
@@ -65,18 +62,54 @@ class Trainer:
                                   mixed_precision="fp16"
                                   )
         self.initialise_optimizer()
-        # todo apply peft to model and prepare acceleratro, wandb and model saving and uplodaing
-        # also all "model.to.device" should be accceleratir.to_device
-    
+        self.prepare_peft_model()
+        self.model, self.optimizer, self.train_dataloader, = self.accelerator.prepare(
+        self.model, self.optimizer, self.train_dataloader
+            )
+        
+
+
+    def initialise_wandb(self):
+        wandb.init(
+                # set the wandb project where this run will be logged
+                project=self.training_args.wandb_project_name,
+                name = self.training_args.wandb_run_name,
+                # track hyperparameters and run metadata
+                config={
+                "learning_rate": self.training_args.learning_rate,
+                "weight_decay": self.training_args.weight_decay,
+                "architecture": "Phi-2",
+                "dataset": self.training_args.dataset_path,
+                "epochs": self.training_args.num_train_epochs,
+                "lora_r": self.training_args.lora_r,
+                "lora_alpha": self.training_args.lora_alpha,
+                "repo_name": self.training_args.hf_repo_name,
+                }
+            )
+        
+    def prepare_peft_model(self):
+        self.model = prepare_model_for_kbit_training(self.model)
+        config = LoraConfig(
+            r=self.training_args.lora_r,
+            lora_alpha=self.training_args.lora_alpha,
+            target_modules=self.training_args.lora_target_modules,
+            bias="none",
+            lora_dropout=0.05,  # Conventional
+            task_type="CAUSAL_LM",
+        )
+
+        self.model = get_peft_model(self.model, config)
+        print_trainable_parameters(self.model)
+
     def calc_loss(self,
                     inputs,
                     logits,
                     mode = "max_likelihood",
                     average_log_prob = False):
         # Shift so that tokens < n predict n
-        shift_labels = inputs["input_ids"][..., 1:].contiguous().to(self.model.device)
+        shift_labels = inputs["input_ids"][..., 1:].contiguous()
         shift_logits = logits[..., :-1, :].contiguous()
-        shift_token_type_ids = inputs["token_type_ids"][..., 1:].contiguous().to(self.model.device)
+        shift_token_type_ids = inputs["token_type_ids"][..., 1:]
         if mode == "max_likelihood":
             # Calculate per-token loss
             loss_fct = CrossEntropyLoss(reduction='none')
@@ -94,7 +127,7 @@ class Trainer:
             # split the logprobs such that every even is "chosen" and every odd is "not chosen"
             policy_chosen_logprobs = logprobs[::2]
             policy_not_chosen_logprobs = logprobs[1::2]
-            reference_logits = inputs["reference_logits"].to(self.model.device)
+            reference_logits = inputs["reference_logits"]
             reference_logprobs = self.calculate_logprobs(reference_logits, shift_labels, shift_token_type_ids, average_log_prob)
             # split the logprobs such that every even is "chosen" and every odd is "not chosen"
             reference_chosen_logprobs = reference_logprobs[::2]
@@ -133,9 +166,9 @@ class Trainer:
 
 
         self.lr_scheduler = get_scheduler(
-            name="linear",
+            name=self.training_args.lr_schedule_name,
             optimizer = self.optimizer,
-            num_warmup_steps=self.num_training_steps * 0.1,
+            num_warmup_steps=self.num_training_steps * self.training_args.warmup_proportion,
             num_training_steps=self.num_training_steps,
         )
     def train(self):
@@ -143,9 +176,9 @@ class Trainer:
         completed_steps = 0
         for epoch in range(self.training_args.num_train_epochs):
             for step, batch in tqdm(
-                enumerate(self.train_dataloader, start=1), total=self.num_training_steps
+                enumerate(self.train_dataloader, start=1), total=len(self.train_dataloader)
             ):
-                logits = self.model(batch["input_ids"].to(self.model.device)).logits
+                logits = self.model(batch["input_ids"]).logits
                 loss = self.calc_loss(batch, logits, "dpo", True)
                 if step % 10 == 0:
                     self.accelerator.print(
@@ -154,10 +187,11 @@ class Trainer:
                             "samples": step * self.training_args.per_device_train_batch_size,
                             "steps": completed_steps,
                             "loss/train": loss.item() * self.training_args.gradient_accumulation_steps,
+                            "epoch": epoch,
                         }
                     )
-                    #wandb.log({"lr": self.optimizer.param_groups[0]["lr"],
-                    #           "loss/train": loss.item() * self.training_args.gradient_accumulation_steps})
+                    wandb.log({"lr": self.optimizer.param_groups[0]["lr"],
+                               "loss/train": loss.item() * self.training_args.gradient_accumulation_steps})
                 loss = loss / self.training_args.gradient_accumulation_steps
                 self.accelerator.backward(loss)
                 if step % self.training_args.gradient_accumulation_steps == 0:
@@ -182,20 +216,30 @@ class Trainer:
                 #    if accelerator.is_main_process and save_model:
                 #        model.tokenizer.save_pretrained(step_output_dir)
                 #        unwrapped_model.save_pretrained(step_output_dir, save_function=accelerator.save)
-        #wandb.finish()
-def main():
+        wandb.finish()
+        if self.training_args.upload_model:
+            self.upload_model()
+
     
-    model_name = "microsoft/phi-2"
+    def upload_model(self):
+        # save the model
+        unwrapped_model = self.accelerator.unwrap_model(self.model)
+        unwrapped_model = unwrapped_model.merge_and_unload()
+        unwrapped_model.push_to_hub(self.training_args.hf_repo_name, token = HF_TOKEN, private = True)
+        self.tokenizer.push_to_hub(self.training_args.hf_repo_name, token = HF_TOKEN)
+
+
+def train_model(args):
+    
+    model_name = args.model_name
     model_name = "EleutherAI/pythia-70m-v0"
-    run_name = "wandb_run_name" # WANDB run name
-    repo_name = "HF_repo_name" # HF repo name where model is saved
-    data_mode = "original" # either use original or synthetic data loading
-    data_path = r"" # where data is located
+    data_type = args.dataset_type # either use original or synthetic data loading
+    data_path = args.dataset_path # where data is located
 
 
-    if data_mode == "original":
+    if data_type == "original":
         dataset = Dataset.from_dict(load_gsm8k_data(data_path))
-    elif data_mode == "synthetic":
+    elif data_type == "synthetic":
         dataset = Dataset.from_dict(load_synthetic_data(data_path))
     
     model = AutoModelForCausalLM.from_pretrained(
@@ -216,15 +260,14 @@ def main():
     dataset = dataset.shuffle(seed = 42)
     tokenized_dataset = dataset.map(dataset_processor.training_preprocessor_function, batched=True, remove_columns=dataset.column_names)
     tokenized_dataset.set_format("torch")
-    training_args = TrainingArgs()
-    train_dataloader = DataLoader(tokenized_dataset, batch_size=training_args.per_device_train_batch_size, shuffle=True)
+    train_dataloader = DataLoader(tokenized_dataset, batch_size=args.per_device_train_batch_size, shuffle=True)
     print(len(train_dataloader))
     trainer = Trainer(model,
-                    training_args,
+                    args,
                     tokenizer,
                     train_dataloader)
     trainer.train()
 
 
 if __name__ == "__main__":
-    main()
+    train_model()
