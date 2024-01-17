@@ -23,14 +23,16 @@ class Generator:
       self.mode = mode
       self.batch_size = 16 # specify generation batch size
       if mode == "eval":
-         self.sampling_params = SamplingParams(max_tokens=384,
+            self.batch_size = 16 # specify generation batch size
+            self.sampling_params = SamplingParams(max_tokens=384,
                                     top_k = 40,
                                     temperature = 0.3,
                                     n = 1,
                                     best_of = 5)
          
       elif mode == "data_generation":
-         self.sampling_params = SamplingParams(max_tokens=384,
+            self.batch_size = 8 # specify generation batch size
+            self.sampling_params = SamplingParams(max_tokens=384,
                                     top_k = 40,
                                     temperature = 0.7,
                                     n = 16)
@@ -69,7 +71,7 @@ def run_inference(data_path,
   times = []
   tokens_per_sec = []
   batch = []
-  correct_predictions = []
+  predictions = []
   save_outputs = 500 # only used if mode is data_generation
   if datapoint_end_idx == -1:
     datapoint_end_idx = len(dataset)
@@ -108,20 +110,19 @@ def run_inference(data_path,
         reward_dict = get_reward(datapoint_solutions, batch[idx]["answer"])
 
         if mode == "data_generation":
-          for rew_idx, reward in enumerate(list(reward_dict.values())):
-            if reward == 1:
-              correct_pred = {"prediction": list(reward_dict.keys())[rew_idx],
-                              "question": batch[idx]["question"],
-                              "answer": batch[idx]["answer"]}
-              correct_predictions.append(correct_pred)
+            if len(reward_dict[1]) > 0:
+                prediction = {"correct_prediction": reward_dict[1],
+                               "incorrect_prediction": reward_dict[0],
+                            "question": batch[idx]["question"],
+                            "answer": batch[idx]["answer"]}
+            predictions.append(prediction)
 
-              if len(correct_predictions) >= save_outputs: # save every save_outputs datapoints
-                  with open(f"{data_save_dir}/correct_pred_{i}.json", "w", encoding = "utf-8") as final:
-                      json.dump(correct_predictions, final)
-                  correct_predictions = []
+            if len(predictions) >= save_outputs: # save every save_outputs datapoints
+                with open(f"{data_save_dir}/correct_pred_{i}.json", "w", encoding = "utf-8") as final:
+                    json.dump(predictions, final)
+                predictions = []
 
-        reward_values = list(reward_dict.values())
-        reward = max(reward_values)
+        reward = 1 if len(reward_dict[1]) > 0 else 0
         rewards.append(reward)
         print(reward)
 
