@@ -59,7 +59,7 @@ class Trainer:
         )
 
         self.accelerator = Accelerator(fsdp_plugin=fsdp_plugin,
-                                  mixed_precision="fp16"
+                                  mixed_precision=self.training_args.mixed_prec_training
                                   )
         self.initialise_optimizer()
         self.prepare_peft_model()

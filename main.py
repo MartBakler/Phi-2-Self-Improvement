@@ -33,6 +33,7 @@ def get_args():
     parser.add_argument("--dpo_beta", type=float, default=0.1)
     parser.add_argument("--lr_schedule_name", type=str, default="cosine")
     parser.add_argument("--warmup_proportion", type=float, default=0.1)
+    parser.add_argument("--mixed_prec_training", type=str, default="fp16")
 
 
     
