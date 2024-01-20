@@ -1,0 +1,4 @@
+Below you will find a mathematical question and its solution. Please read the question and solution carefully and then evaluate if the final answer is correct or not. If you think the answer is correct, output "Correct". If you think the answer is not correct, output "Incorrect".
+{question}
+Solution: {solution}
+Evaluation: 

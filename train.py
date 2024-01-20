@@ -20,6 +20,7 @@ from peft import prepare_model_for_kbit_training, LoraConfig, get_peft_model
 #TODO
 # wandb,
 # model saving and uplodaing in fp16
+# change in data format needs to be compatible with original data training
 
 
 HF_TOKEN = ""
@@ -233,7 +234,6 @@ class Trainer:
 def train_model(args):
     
     model_name = args.model_name
-    model_name = "EleutherAI/pythia-70m-v0"
     data_type = args.dataset_type # either use original or synthetic data loading
     data_path = args.dataset_path # where data is located
 
@@ -257,7 +257,10 @@ def train_model(args):
       token = HF_TOKEN
     )
     tokenizer.pad_token = tokenizer.eos_token
-    dataset_processor = DatasetProcessor(tokenizer, r"prompts\finetuned_prompt.txt")
+    dataset_processor = DatasetProcessor(tokenizer,
+                                          r"prompts\sft_generation.txt",
+                                          r"prompts\sft_eval.txt",
+                                          args.training_mode)
     dataset = dataset.shuffle(seed = 42)
     tokenized_dataset = dataset.map(dataset_processor.training_preprocessor_function, batched=True, remove_columns=dataset.column_names)
     tokenized_dataset.set_format("torch")
