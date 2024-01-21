@@ -1,6 +1,6 @@
 from vllm import LLM, SamplingParams
 from data_utils import load_gsm8k_data, load_prompt
-from reward_utils import get_reward
+from evaluate_utils import evaluate_batch
 import json
 import os
 from datasets import Dataset
@@ -12,23 +12,29 @@ h = nvmlDeviceGetHandleByIndex(0)
 
 class Generator:
   def __init__(self,
-              prompt_path : str,
               model_name : str,
-              mode : str = "eval"):
-      self.prompt_path = prompt_path
-      self.prompt = load_prompt(prompt_path)
+              mode : str = "evaluation_generation_only"):
+      self.generation_prompt = load_prompt("prompts\sft_generation.txt")
+      self.eval_prompt = load_prompt("prompts\eval.txt")
+
       self.model = LLM(model=model_name,
           trust_remote_code=True
           )
       self.mode = mode
       self.batch_size = 16 # specify generation batch size
-      if mode == "eval":
+      if mode == "evaluation_generation_only":
             self.batch_size = 16 # specify generation batch size
             self.sampling_params = SamplingParams(max_tokens=384,
                                     top_k = 40,
                                     temperature = 0.3,
                                     n = 1,
                                     best_of = 5)
+      if mode == "evaluation_majority_vote" or mode == "evaluation_generation_with_eval":
+            self.batch_size = 16 # specify generation batch size
+            self.sampling_params = SamplingParams(max_tokens=384,
+                                    top_k = 40,
+                                    temperature = 0.7,
+                                    n = 16)
          
       elif mode == "data_generation":
             self.batch_size = 8 # specify generation batch size
@@ -44,7 +50,7 @@ class Generator:
       return outputs
   
   def generate_batch(self, batch):
-    prompts = [self.prompt.format(question = x["question"]) for x in batch]
+    prompts = [self.generation_prompt.format(question = x["question"]) for x in batch]
     try:
       start_time = time.perf_counter()
       outputs = self._generate(prompts)
@@ -54,17 +60,28 @@ class Generator:
     
     total_time = end_time - start_time
     return outputs, total_time
+  
+  def evaluate_batch(self, batch, inputs):
+      prompts = [self.eval_prompt.format(question = batch[idx]["question"], solution = inputs.outputs[idx]) for idx in range(len(batch))]
+      try:
+        start_time = time.perf_counter()
+        outputs = self._generate(prompts)
+        end_time = time.perf_counter()
+      except:
+        return None, None
+
+      total_time = end_time - start_time
+      return outputs, total_time
     
     
 def run_inference(data_path,
         model_name,
-        prompt_path, 
-        mode = "eval",
+        mode = "evaluation_generation_only",
         datapoint_start_idx = 0,
         datapoint_end_idx = -1):
   # load in the data
   dataset = Dataset.from_dict(load_gsm8k_data(data_path))
-  generator = Generator(prompt_path,
+  generator = Generator(
                         model_name,
                         mode)
   rewards = []
@@ -84,6 +101,11 @@ def run_inference(data_path,
     batch.append(dataset[i])
     if len(batch) == generator.batch_size or i == datapoint_end_idx -1:
       outputs, total_time = generator.generate_batch(batch)
+      if mode in ["evaluation_generation_with_eval", "evaluation_majority_vote"]: # apply the filter strategy
+        if mode == "evaluation_generation_with_eval":
+          eval_outputs, eval_time = generator.evaluate_batch(batch, outputs)
+
+        
       if outputs is None:
         batch = []
         continue
@@ -107,7 +129,7 @@ def run_inference(data_path,
       for idx in range(len(batch)):
 
         datapoint_solutions = [x.text for x in outputs[idx].outputs]
-        reward_dict = get_reward(datapoint_solutions, batch[idx]["answer"])
+        reward_dict, reward = evaluate_batch(datapoint_solutions, batch[idx]["answer"], mode)
 
         if mode == "data_generation":
             if len(reward_dict[1]) > 0:
@@ -122,7 +144,6 @@ def run_inference(data_path,
                     json.dump(predictions, final)
                 predictions = []
 
-        reward = 1 if len(reward_dict[1]) > 0 else 0
         rewards.append(reward)
         print(reward)
 
