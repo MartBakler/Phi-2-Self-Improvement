@@ -25,9 +25,11 @@ def get_args():
     parser.add_argument("--lora_r", type=int, default=128)
     parser.add_argument("--lora_alpha", type=float, default=256)
     parser.add_argument("--lora_target_modules", type=list, default=[
-                     "Wqkv",
-                     "out_proj",
-                        ])
+            "q_proj",
+             "k_proj",
+             "v_proj"
+             "dense",
+        ])
     parser.add_argument("--dpo_beta", type=float, default=0.1)
     parser.add_argument("--lr_schedule_name", type=str, default="cosine")
     parser.add_argument("--warmup_proportion", type=float, default=0.2)

@@ -65,6 +65,7 @@ class Trainer:
                                   )
         self.initialise_optimizer()
         self.prepare_peft_model()
+        self.initialise_wandb
         self.model, self.optimizer, self.train_dataloader, = self.accelerator.prepare(
         self.model, self.optimizer, self.train_dataloader
             )
@@ -106,25 +107,24 @@ class Trainer:
     def calc_loss(self,
                     inputs,
                     logits,
-                    mode = "max_likelihood",
                     average_log_prob = False):
         # Shift so that tokens < n predict n
         shift_labels = inputs["input_ids"][..., 1:].contiguous()
         shift_logits = logits[..., :-1, :].contiguous()
         shift_token_type_ids = inputs["token_type_ids"][..., 1:]
-        if mode == "max_likelihood":
+        if "sft" in self.training_args.training_mode:
+            flattened_token_type_ids = shift_token_type_ids.flatten()
             # Calculate per-token loss
             loss_fct = CrossEntropyLoss(reduction='none')
             loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
             # do not count loss for where the token_type_ids are not 1
             loss = loss * (flattened_token_type_ids == 1).float()
-            flattened_token_type_ids = shift_token_type_ids.flatten()
             # Resize and average loss per sample
             loss_per_sample = loss.view(shift_logits.size(0), shift_logits.size(1)).mean(axis=1)
             # Calculate weighted average
             weighted_loss = loss_per_sample.mean()
             return weighted_loss
-        elif mode == "dpo":
+        elif "dpo" in self.training_args.training_mode:
             logprobs = self.calculate_logprobs(shift_logits, shift_labels, shift_token_type_ids, average_log_prob)
             # split the logprobs such that every even is "chosen" and every odd is "not chosen"
             policy_chosen_logprobs = logprobs[::2]
@@ -181,7 +181,7 @@ class Trainer:
                 enumerate(self.train_dataloader, start=1), total=len(self.train_dataloader)
             ):
                 logits = self.model(batch["input_ids"]).logits
-                loss = self.calc_loss(batch, logits, "dpo", True)
+                loss = self.calc_loss(batch, logits, True)
                 if step % 10 == 0:
                     self.accelerator.print(
                         {
