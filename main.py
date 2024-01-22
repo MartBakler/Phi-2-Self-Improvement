@@ -6,10 +6,9 @@ def get_args():
     parser.add_argument("--model_name", type=str, default="/path/to/model")
     parser.add_argument("--dataset_path", type=str, default="/path/to/data")
     #args used for inference
-    parser.add_argument("--mode", type=str, default="eval")
+    parser.add_argument("--mode", type=str, default="evaluation_generation_with_eval")
     parser.add_argument("--eval_datapoint_start", type=int, default=0)
     parser.add_argument("--eval_datapoint_finish", type=int, default=-1)
-    parser.add_argument("--prompt_path", type=str, default="/path/to/prompt_for_inference")
 
     # args used for training
     parser.add_argument("--upload_model", type=bool, default=False)
@@ -44,12 +43,10 @@ def get_args():
 def main():
     args, unknown = get_args()
     print(args)
-    args.mode = "training"
-    if args.mode in ["eval", "data_generation"]:
+    if args.mode in ["evaluation_generation_with_eval", "data_generation"]:
         from model_inference import run_inference
         run_inference(args.dataset_path,
                       args.model_name,
-                      args.prompt_path,
                       args.mode,
                       args.eval_datapoint_start,
                       args.eval_datapoint_finish)

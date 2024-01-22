@@ -33,9 +33,15 @@ def get_reward(candidates, reference, strategy = "all"):
     return reward_dict, reward
 
 
-def evaluate_batch(candidates, reference, mode):
-   if mode == "evaluation_generation_only":
+def evaluate_batch(candidates, reference, mode, evaluations = None):
+    if mode == "evaluation_generation_only":
       return get_reward(candidates, reference)
-   elif mode == "evaluation_majority_vote":
+    elif mode == "evaluation_majority_vote":
       return get_reward(candidates, reference, strategy = "majority_vote")
+    elif mode == "evaluation_generation_with_eval":
+       candidates = [candidates[idx] for idx in range(len(candidates)) if "True" in evaluations[idx]]
+       if len(candidates) == 0:
+          return {1:[], 0: ["placeholder"]}, 0
+       return get_reward(candidates, reference, strategy = "majority_vote")
+
       
