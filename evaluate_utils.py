@@ -44,12 +44,12 @@ def get_reward(candidates, reference, strategy = "all", evaluations = None):
 
 
 def evaluate_batch(candidates, reference, mode, eval_confidence, evaluations = None):
-    if mode in ["evaluation_generation_only", "data_generation"]:
+    if mode in ["eval@16", "eval@1"]:
       return get_reward(candidates, reference)
     elif mode == "evaluation_majority_vote":
       return get_reward(candidates, reference, strategy = "majority_vote")
-    elif mode == "evaluation_generation_with_eval":
-      strategy = "filter"
+    elif mode.startswith("evaluation_generation_with_eval"):
+      strategy = mode.split("_")[-1]
       if strategy == "filter":
         filtered_candidates = [candidates[idx] for idx in range(len(candidates)) if "True" in evaluations[idx][0] and evaluations[idx][1] > eval_confidence]
         if len(filtered_candidates) == 0:

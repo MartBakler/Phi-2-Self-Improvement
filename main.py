@@ -6,7 +6,8 @@ def get_args():
     parser.add_argument("--model_name", type=str, default="/path/to/model")
     parser.add_argument("--dataset_path", type=str, default="/path/to/data")
     #args used for inference
-    parser.add_argument("--mode", type=str, default="evaluation_generation_with_eval")
+    parser.add_argument("--mode", type=str, default="eval@1")
+    parser.add_argument("--save_data", type=bool, default=False)
     parser.add_argument("--eval_datapoint_start", type=int, default=0)
     parser.add_argument("--eval_datapoint_finish", type=int, default=-1)
 
@@ -43,13 +44,17 @@ def get_args():
 def main():
     args, unknown = get_args()
     print(args)
-    if args.mode in ["evaluation_generation_with_eval", "data_generation"]:
+    if args.mode in ["eval@1",
+                      "eval@16",
+                      "evaluation_majority_vote",
+                      "evaluation_generation_with_eval"]:
         from model_inference import run_inference
         run_inference(args.dataset_path,
                       args.model_name,
                       args.mode,
                       args.eval_datapoint_start,
-                      args.eval_datapoint_finish)
+                      args.eval_datapoint_finish,
+                      args.save_data)
     elif args.mode == "training":
         from train import train_model
         train_model(args) # a couple of TODOs left in train_model

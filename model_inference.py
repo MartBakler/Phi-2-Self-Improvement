@@ -14,7 +14,7 @@ h = nvmlDeviceGetHandleByIndex(0)
 class Generator:
   def __init__(self,
               model_name : str,
-              mode : str = "evaluation_generation_only"):
+              mode : str = "eval@1"):
       self.generation_prompt = load_prompt("prompts\sft_generation.txt")
       self.eval_prompt = load_prompt("prompts\sft_eval.txt")
       self.eval_confidence = 0.75
@@ -24,14 +24,14 @@ class Generator:
           )
       self.mode = mode
       self.batch_size = 16 # specify generation batch size
-      if mode == "evaluation_generation_only":
+      if mode == "eval@1":
             self.batch_size = 16 # specify generation batch size
             self.sampling_params = SamplingParams(max_tokens=384,
                                     top_k = 40,
                                     temperature = 0.3,
                                     n = 1,
                                     best_of = 5)
-      if mode == "evaluation_majority_vote" or mode == "evaluation_generation_with_eval":
+      if mode == "evaluation_majority_vote" or mode.startswith("evaluation_generation_with_eval"):
             self.batch_size = 8 # specify generation batch size
             self.sampling_params = SamplingParams(max_tokens=384,
                                     top_k = 40,
@@ -42,8 +42,7 @@ class Generator:
                                     temperature = 0,
                                     n = 1,
                                     logprobs = 4)
-         
-      elif mode == "data_generation":
+      elif mode == "eval@16":
             self.batch_size = 8 # specify generation batch size
             self.sampling_params = SamplingParams(max_tokens=384,
                                     top_k = 40,
@@ -95,9 +94,10 @@ class Generator:
     
 def run_inference(data_path,
         model_name,
-        mode = "evaluation_generation_only",
+        mode = "eval@1",
         datapoint_start_idx = 0,
-        datapoint_end_idx = -1):
+        datapoint_end_idx = -1,
+        save_data = False):
   # load in the data
   dataset = Dataset.from_dict(load_gsm8k_data(data_path))
   generator = Generator(
@@ -112,7 +112,7 @@ def run_inference(data_path,
   if datapoint_end_idx == -1:
     datapoint_end_idx = len(dataset)
 
-  if mode == "data_generation":
+  if save_data:
     data_save_dir = "generated_data"
     if not os.path.exists(data_save_dir):
       os.mkdir(data_save_dir)
@@ -121,7 +121,7 @@ def run_inference(data_path,
     if len(batch) == generator.batch_size or i == datapoint_end_idx -1:
       evaluations = [[] for x in range(len(batch))]
       outputs, total_time = generator.generate_batch(batch)
-      if mode == "evaluation_generation_with_eval":
+      if mode.startswith("evaluation_generation_with_eval"):
         evaluations, eval_time = generator.evaluate_batch(batch, outputs)
 
         
@@ -154,7 +154,7 @@ def run_inference(data_path,
                                               generator.eval_confidence,
                                               evaluations[idx])
 
-        if mode == "data_generation":
+        if save_data:
             if reward_dict is not None and len(reward_dict[1]) > 0:
                 prediction = {"correct_prediction": reward_dict[1],
                                "incorrect_prediction": reward_dict[0],
