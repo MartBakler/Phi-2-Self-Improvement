@@ -7,6 +7,7 @@ from datasets import Dataset
 import torch
 import time
 from pynvml import *
+import math
 nvmlInit()
 h = nvmlDeviceGetHandleByIndex(0)
 
@@ -16,6 +17,7 @@ class Generator:
               mode : str = "evaluation_generation_only"):
       self.generation_prompt = load_prompt("prompts\sft_generation.txt")
       self.eval_prompt = load_prompt("prompts\sft_eval.txt")
+      self.eval_confidence = 0.75
 
       self.model = LLM(model=model_name,
           trust_remote_code=True
@@ -38,7 +40,8 @@ class Generator:
             self.eval_params = SamplingParams(max_tokens=384,
                                     top_k = 40,
                                     temperature = 0,
-                                    n = 1)
+                                    n = 1,
+                                    logprobs = 4)
          
       elif mode == "data_generation":
             self.batch_size = 8 # specify generation batch size
@@ -65,7 +68,8 @@ class Generator:
       start_time = time.perf_counter()
       outputs = self._generate(prompts)
       end_time = time.perf_counter()
-    except:
+    except Exception as e:
+      print(e)
       return None, None
     
     total_time = end_time - start_time
@@ -79,7 +83,7 @@ class Generator:
             start_time = time.perf_counter()
             outputs = self._generate(prompts, "eval")
             end_time = time.perf_counter()
-            evaluations = [x.outputs[0].text for x in outputs]
+            evaluations = [(x.outputs[0].text, math.exp(max(x.outputs[0].logprobs[1].values()))) for x in outputs]
             output_evaluations.append(evaluations)
         except Exception as e:
             print(e)
@@ -147,15 +151,16 @@ def run_inference(data_path,
         reward_dict, reward = evaluate_batch(datapoint_solutions,
                                               batch[idx]["answer"],
                                               mode,
+                                              generator.eval_confidence,
                                               evaluations[idx])
 
         if mode == "data_generation":
-            if len(reward_dict[1]) > 0:
+            if reward_dict is not None and len(reward_dict[1]) > 0:
                 prediction = {"correct_prediction": reward_dict[1],
                                "incorrect_prediction": reward_dict[0],
                             "question": batch[idx]["question"],
                             "answer": batch[idx]["answer"]}
-            predictions.append(prediction)
+                predictions.append(prediction)
 
             if len(predictions) >= save_outputs: # save every save_outputs datapoints
                 with open(f"{data_save_dir}/correct_pred_{i}.json", "w", encoding = "utf-8") as final:
