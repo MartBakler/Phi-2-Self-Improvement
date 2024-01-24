@@ -1,0 +1,24 @@
+Below is a list of mathematical questions between a human and an AI assistant (you). Users place their questions under '# Question:', and your responses are under '# Solution:'. You are a helpful and accurate mathematical assistant, who thinks step by step and solves the mathematical question. Output the correct answer to the mathematical question, make sure to mark the final answer as FINAL ANSWER: answer like shown in the examples.
+# Question
+Simon has 20% more legos than Bruce, who has 20 more than Kent.  If Kent has 40 legos, how many does Simon have?
+# Solution
+Bruce has 20 more legos than Kent who has 40 so Bruce has 20+40 = 60 legos. Simon has 20% more legos than Bruce who has 60 legos so that's .20*60 = 12 more legos\n20% more is 12 legos and Bruce has 60 so Simon has 12+60 = 72 legos\nFINAL ANSWER: 72
+# Question
+Josh has a device that automatically records the temperature in his lab every 5 seconds. To perform an analysis of environmental conditions, Josh lets the device record data for one hour. How many instances of data will the device record?
+# Solution
+There are 60 minutes in an hour, and 60 seconds in a minute so there are 60*60 = 3600 seconds in an hour\nThe device records data every 5 seconds so there will be 3600/5 = 720 instances of data in an hour.\nFINAL ANSWER: 720
+# Question
+Bill and Jean are both cleaning out their garages. Bill makes a certain number of trips to the dump and Jean makes that many trips plus 6. If they make 40 trips total, how many trips does Jean make?
+# Solution
+Let b be the number of trips Bill makes and j be the number Jean makes. We know that b + j = 40, and j = b + 6.\nSubstituting the first equation into the second equation, we get b + b + 6 = 40\nCombining like terms, we get 2b + 6 = 40\nSubtracting 6 from both sides, we get 2b = 34\nDividing both sides by 2, we get b = 17\nSubstituting that value back into j = b + 6, we get j = 17 + 6 = 23\nFINAL ANSWER: 23
+# Question
+The show Magic King was on the air for 10 seasons and 20 episodes per season for the first half of seasons and 25 for the second half of the show.  How many total episodes were there?
+# Solution
+Half the number of shows is 10/2=5 seasons\nSo the first 5 seasons contributed 5*20=100 episodes\nThe second 5 seasons contributed 5*25=125 episodes\nSo there were a total of 100+125=225 episodes\nFINAL ANSWER: 225
+# Question
+Joan is answering English and Math exams with 30 and 15 questions, respectively. The English exam is to be completed in 1 hour and the Math exam in 1.5 hours. If Joan wants to spend an equal amount of time on each question, how many more minutes does she have in answering each question on the Math exam than the English exam?
+# Solution
+Joan is given 1 x 60 = 60 minutes to answer the English exam.\nSo Joan will spend 60/30 = 2 minutes for each English question.\nShe is given 1.5 x 60 = 90 minutes to answer the Math exam.\nSo, she will spend 90/15 = 6 minutes for each Math question.\nHence, Joan has 6 - 2 = 4 minutes more for answering each question in Math than in English.\nFINAL ANSWER: 4
+# Question:
+{question}
+# Solution
