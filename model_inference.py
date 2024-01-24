@@ -97,7 +97,8 @@ def run_inference(data_path,
         mode = "eval@1",
         datapoint_start_idx = 0,
         datapoint_end_idx = -1,
-        save_data = False):
+        save_data = False,
+        access_to_gold_truth = True):
   # load in the data
   dataset = Dataset.from_dict(load_gsm8k_data(data_path))
   generator = Generator(
@@ -148,16 +149,17 @@ def run_inference(data_path,
       for idx in range(len(batch)):
 
         datapoint_solutions = [x.text for x in outputs[idx].outputs]
-        reward_dict, reward = evaluate_batch(datapoint_solutions,
+        chosen_answer_dict, reward = evaluate_batch(datapoint_solutions,
                                               batch[idx]["answer"],
                                               mode,
                                               generator.eval_confidence,
-                                              evaluations[idx])
+                                              evaluations[idx],
+                                              access_to_gold_truth = access_to_gold_truth)
 
         if save_data:
-            if reward_dict is not None and len(reward_dict[1]) > 0:
-                prediction = {"correct_prediction": reward_dict[1],
-                               "incorrect_prediction": reward_dict[0],
+            if chosen_answer_dict is not None and len(chosen_answer_dict[1]) > 0:
+                prediction = {"correct_prediction": chosen_answer_dict[1],
+                               "incorrect_prediction": chosen_answer_dict[0],
                             "question": batch[idx]["question"],
                             "answer": batch[idx]["answer"]}
                 predictions.append(prediction)

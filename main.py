@@ -8,6 +8,7 @@ def get_args():
     #args used for inference
     parser.add_argument("--mode", type=str, default="eval@1")
     parser.add_argument("--save_data", type=bool, default=False)
+    parser.add_argument("--access_to_gold_truth", type=bool, default=True)
     parser.add_argument("--eval_datapoint_start", type=int, default=0)
     parser.add_argument("--eval_datapoint_finish", type=int, default=-1)
 
@@ -54,7 +55,8 @@ def main():
                       args.mode,
                       args.eval_datapoint_start,
                       args.eval_datapoint_finish,
-                      args.save_data)
+                      args.save_data,
+                      args.access_to_gold_truth)
     elif args.mode == "training":
         from train import train_model
         train_model(args) # a couple of TODOs left in train_model
