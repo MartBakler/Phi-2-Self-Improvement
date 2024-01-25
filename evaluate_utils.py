@@ -59,22 +59,29 @@ def evaluate_batch(candidates, reference, mode, eval_confidence, evaluations = N
                          evaluations = evaluations,
                          access_to_gold_truth = access_to_gold_truth)
     elif mode == "evaluation_majority_vote":
-      return get_reward(candidates,
+      chosen_answer_dict = get_majority_answer(candidates)
+      reward = get_reward(chosen_answer_dict[1],
                          reference, 
-                         strategy = "majority_vote",
+                         strategy="evaluate_all",
                          evaluations = evaluations,
                          access_to_gold_truth = access_to_gold_truth)
+      return chosen_answer_dict, reward
+    
     elif mode.startswith("evaluation_generation_with_eval"):
       strategy = mode.split("_")[-1]
       if strategy == "filter":
         filtered_candidates = [candidates[idx] for idx in range(len(candidates)) if "True" in evaluations[idx][0] and evaluations[idx][1] > eval_confidence]
         if len(filtered_candidates) == 0:
-           return None, 0
-        return get_reward(filtered_candidates, 
-                          reference, 
-                          strategy = "majority_vote",
-                          evaluations = evaluations,
-                          access_to_gold_truth = access_to_gold_truth)
+          return {1: [], 0: candidates}, 0
+        chosen_answer_dict = get_majority_answer(filtered_candidates)
+        reward = get_reward(chosen_answer_dict[1],
+                         reference, 
+                         strategy="evaluate_all",
+                         evaluations = evaluations,
+                         access_to_gold_truth = access_to_gold_truth)
+        return chosen_answer_dict, reward
+      
+
       elif strategy == "order":
         #order candidates by confidence, results in a list of tuples (candidate, evalutation, confidence)
         ordered_candidates = sorted([(candidates[idx], evaluations[idx][0], evaluations[idx][1]) for idx in range(len(candidates))], key = lambda x: x[2], reverse = True)
@@ -94,3 +101,27 @@ def evaluate_batch(candidates, reference, mode, eval_confidence, evaluations = N
                            strategy = strategy,
                            evaluations = evaluations,
                            access_to_gold_truth=access_to_gold_truth)
+
+def get_top_picks():
+  pass
+
+def get_majority_answer(candidates):
+    """
+    This function is used to choose the generated data to save
+    """
+
+    chosen_answer_dict = {}
+    answer_counts = {}
+    for candidate in candidates:
+      if "FINAL ANSWER:" not in candidate:
+        continue
+      else:
+        answer = candidate.split("FINAL ANSWER:")[1]
+        final_answer = answer.split("\n")[0].strip()
+        if final_answer not in answer_counts:
+          answer_counts[final_answer] = []
+        answer_counts[final_answer].append(candidate)
+        most_common_answer = max(answer_counts, key=lambda x: len(answer_counts[x]))
+        chosen_answer_dict[1] = answer_counts[most_common_answer]
+        chosen_answer_dict[0] = [x for x in candidates if x not in chosen_answer_dict[1]]
+        return chosen_answer_dict
