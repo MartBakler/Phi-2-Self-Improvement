@@ -1,6 +1,6 @@
 from vllm import LLM, SamplingParams
 from data_utils import load_gsm8k_data, load_prompt
-from evaluate_utils import evaluate_batch
+from evaluator import Evaluator
 import json
 import os
 from datasets import Dataset
@@ -8,30 +8,41 @@ import torch
 import time
 from pynvml import *
 import math
+from transformers import AutoTokenizer
 nvmlInit()
 h = nvmlDeviceGetHandleByIndex(0)
 
 class Generator:
   def __init__(self,
               model_name : str,
-              mode : str = "eval@1"):
-      self.generation_prompt = load_prompt("prompts\sft_generation.txt")
-      self.eval_prompt = load_prompt("prompts\sft_eval.txt")
-      self.eval_confidence = 0.75
+              mode : str = "eval-top1"):
+      self.generation_prompt = load_prompt("sft_generation.txt")
+      self.eval_prompt = load_prompt("sft_eval.txt")
 
       self.model = LLM(model=model_name,
           trust_remote_code=True
           )
+      self.tokenizer = AutoTokenizer.from_pretrained(
+          model_name, device_map = "auto",
+          add_eos_token=True,
+        )
+      self.token_mapping = {"TRUE": self.tokenizer.convert_tokens_to_ids("True"),
+                            "FALSE": self.tokenizer.convert_tokens_to_ids("False")}
       self.mode = mode
       self.batch_size = 16 # specify generation batch size
-      if mode == "eval@1":
+      if mode == "eval-top1":
             self.batch_size = 16 # specify generation batch size
             self.sampling_params = SamplingParams(max_tokens=384,
                                     top_k = 40,
                                     temperature = 0.3,
                                     n = 1,
                                     best_of = 5)
-      if mode == "evaluation_majority_vote" or mode.startswith("evaluation_generation_with_eval"):
+      if mode in  ["eval-majority_vote", 
+                   "eval-conf_top1", 
+                   "eval-conf_classifier_maj_voting", 
+                   "data_gen-top_1_confidence_threshold",
+                   "data_gen-majority_vote",
+                   "data_gen-conf_classifier_maj_voting"]:
             self.batch_size = 8 # specify generation batch size
             self.sampling_params = SamplingParams(max_tokens=384,
                                     top_k = 40,
@@ -42,7 +53,7 @@ class Generator:
                                     temperature = 0,
                                     n = 1,
                                     logprobs = 4)
-      elif mode == "eval@16":
+      elif mode == "eval-top16":
             self.batch_size = 8 # specify generation batch size
             self.sampling_params = SamplingParams(max_tokens=384,
                                     top_k = 40,
@@ -75,35 +86,39 @@ class Generator:
     return outputs, total_time
   
   def evaluate_batch(self, batch, inputs):
-    output_evaluations = []
+    output_confidences = []
     for input_idx, input in enumerate(inputs):
         prompts = [self.eval_prompt.format(question = batch[input_idx]["question"], solution = input.outputs[idx].text) for idx in range(len(input.outputs))]
         try:
             start_time = time.perf_counter()
             outputs = self._generate(prompts, "eval")
             end_time = time.perf_counter()
-            evaluations = [(x.outputs[0].text, math.exp(max(x.outputs[0].logprobs[1].values()))) for x in outputs]
-            output_evaluations.append(evaluations)
+            confidences = [math.exp(x.outputs[0].logprobs[1][self.token_mapping["TRUE"]])/
+                                    (math.exp(x.outputs[0].logprobs[1][self.token_mapping["TRUE"]])+ math.exp(x.outputs[0].logprobs[1][self.token_mapping["FALSE"]])) if 
+                                    (self.token_mapping["TRUE"] in x.outputs[0].logprobs[1] and self.token_mapping["FALSE"] in x.outputs[0].logprobs[1])
+                                    else 0 for x in outputs]
+            #evaluations = [(x.outputs[0].text, math.exp(max(x.outputs[0].logprobs[1].values()))) for x in outputs]
+            output_confidences.append(confidences)
         except Exception as e:
             print(e)
             return None, None
 
     total_time = end_time - start_time
-    return output_evaluations, total_time
+    return output_confidences, total_time
     
     
 def run_inference(data_path,
         model_name,
-        mode = "eval@1",
+        mode = "eval-top1",
         datapoint_start_idx = 0,
         datapoint_end_idx = -1,
-        save_data = False,
         access_to_gold_truth = True):
   # load in the data
   dataset = Dataset.from_dict(load_gsm8k_data(data_path))
   generator = Generator(
                         model_name,
                         mode)
+  evaluator = Evaluator()
   rewards = []
   times = []
   tokens_per_sec = []
@@ -113,19 +128,21 @@ def run_inference(data_path,
   if datapoint_end_idx == -1:
     datapoint_end_idx = len(dataset)
 
-  if save_data:
+  if mode.startswith("data_gen"):
     data_save_dir = "generated_data"
     if not os.path.exists(data_save_dir):
       os.mkdir(data_save_dir)
   for i in range(datapoint_start_idx, datapoint_end_idx):
     batch.append(dataset[i])
     if len(batch) == generator.batch_size or i == datapoint_end_idx -1:
-      evaluations = [[] for x in range(len(batch))]
+      output_confidences = [[] for x in range(len(batch))]
       outputs, total_time = generator.generate_batch(batch)
-      if mode.startswith("evaluation_generation_with_eval"):
-        evaluations, eval_time = generator.evaluate_batch(batch, outputs)
+      if mode in ["eval-conf_top1",
+                  "eval-conf_classifier_maj_voting",
+                  "data_gen-top_1_confidence_threshold",
+                  "data_gen-conf_classifier_maj_voting"]:
+        output_confidences, eval_time = generator.evaluate_batch(batch, outputs)
 
-        
       if outputs is None:
         batch = []
         continue
@@ -149,14 +166,14 @@ def run_inference(data_path,
       for idx in range(len(batch)):
 
         datapoint_solutions = [x.text for x in outputs[idx].outputs]
-        chosen_answer_dict, reward = evaluate_batch(datapoint_solutions,
+        chosen_answer_dict, reward = evaluator.evaluate_batch(datapoint_solutions,
                                               batch[idx]["answer"],
                                               mode,
-                                              generator.eval_confidence,
-                                              evaluations[idx],
+                                              output_confidences[idx],
                                               access_to_gold_truth = access_to_gold_truth)
-
-        if save_data:
+        if reward == -1:
+           continue
+        if mode.startswith("data_gen"):
             if chosen_answer_dict is not None and len(chosen_answer_dict[1]) > 0:
                 prediction = {"correct_prediction": chosen_answer_dict[1],
                                "incorrect_prediction": chosen_answer_dict[0],
@@ -176,7 +193,8 @@ def run_inference(data_path,
 
 
   # print some summary statistics
-  print(sum(rewards)/len(rewards))
+  print(f"Average reward: {sum(rewards)/len(rewards)}")
+  print(f"Number of datapoints used: {len(rewards)/(datapoint_end_idx - datapoint_start_idx)}")
   print(f"Average request time {sum(times)/len(times)}")
   print(f"Time per datapoint {sum(times)/(datapoint_end_idx - datapoint_start_idx)}")
   print(f"Tokens per second {sum(tokens_per_sec)/len(tokens_per_sec)}")

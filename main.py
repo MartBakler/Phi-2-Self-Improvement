@@ -6,8 +6,7 @@ def get_args():
     parser.add_argument("--model_name", type=str, default="/path/to/model")
     parser.add_argument("--dataset_path", type=str, default="/path/to/data")
     #args used for inference
-    parser.add_argument("--mode", type=str, default="eval@1")
-    parser.add_argument("--save_data", type=bool, default=False)
+    parser.add_argument("--mode", type=str, default="eval-majority_vote")
     parser.add_argument("--access_to_gold_truth", type=bool, default=True)
     parser.add_argument("--eval_datapoint_start", type=int, default=0)
     parser.add_argument("--eval_datapoint_finish", type=int, default=-1)
@@ -45,17 +44,20 @@ def get_args():
 def main():
     args, unknown = get_args()
     print(args)
-    if args.mode in ["eval@1",
-                      "eval@16",
-                      "evaluation_majority_vote",
-                      "evaluation_generation_with_eval"]:
+    if args.mode in [   "eval-top1",
+                        "eval-top16",
+                        "eval-majority_vote",
+                        "eval-conf_top1",
+                        "eval-conf_classifier_maj_voting",
+                        "data_gen-majority_vote",
+                        "data_gen-top_1_confidence_threshold",
+                        "data_gen-conf_classifier_maj_voting"]:
         from model_inference import run_inference
         run_inference(args.dataset_path,
                       args.model_name,
                       args.mode,
                       args.eval_datapoint_start,
                       args.eval_datapoint_finish,
-                      args.save_data,
                       args.access_to_gold_truth)
     elif args.mode == "training":
         from train import train_model
