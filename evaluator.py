@@ -72,6 +72,13 @@ class Evaluator():
             reward = self.calculate_reward(chosen_answer_dict[1],
                                reference, 
                                )
+            if len(chosen_answer_dict[0]) == 0: # if no candidates are left for the negative class
+              # loop through the ordered candidates in reverse and add the first one that is not in the majority vote
+              for candidate in ordered_candidates[::-1]:
+                reward_to_majority = self.calculate_reward([candidate], chosen_answer_dict[1][0])
+                if reward_to_majority == 0:
+                  chosen_answer_dict[0].append(candidate[0])
+                  break
             return chosen_answer_dict, reward
 
 

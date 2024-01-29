@@ -2,7 +2,7 @@
 
 ## Introduction 
 
-This is repo for experimenting with the self-training capabilities of the Microsoft Phi-2 language model. The different experiments are brought out in their respective sections and all are ran on the GSM8K dataset using the original Phi-2 model.
+This is repo for experimenting with the self-training capabilities of the Microsoft Phi-2 language model. The different experiments are brought out in their respective sections and all are ran on the GSM8K dataset using the original Phi-2 model. There have been multiple papers on different self-training methodologies but none of them on this small scale (2.7B model).
 
 Note: The original numbers Phi-2 reported from the blogpost are using code generation. I do not use code generation or code evaluation in any of the experiments, all calculations are needed to be done by the LLM itself
 

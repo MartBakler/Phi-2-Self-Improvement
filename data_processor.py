@@ -54,9 +54,11 @@ def load_data_new_format(data_path):
           if remove_calc:
              #remove everything between < and > 
               final_prediction = re.sub("<<.*?>>", "", final_prediction)
-          correct_predicions.append(final_prediction)
           reward = get_reward(final_prediction, datapoint["answer"])
+          if reward == 0:
+            continue
           rewards.append(reward)
+          correct_predicions.append(final_prediction)
         for prediction in datapoint["incorrect_prediction"]:
           if "FINAL ANSWER:" not in prediction:
               continue
@@ -73,7 +75,8 @@ def load_data_new_format(data_path):
              #remove everything between < and > 
               final_prediction = re.sub("<<.*?>>", "", final_prediction)
           incorrect_predictions.append(final_prediction)
-
+        if len(correct_predicions) ==0 or len(incorrect_predictions) ==0:
+           continue
         dataset.append({"question": datapoint["question"],
                          "original_answer": datapoint["answer"],
                           "correct_predictions": correct_predicions,
