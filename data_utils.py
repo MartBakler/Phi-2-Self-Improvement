@@ -1,6 +1,8 @@
 import os
 import json
 import random
+from datasets import Dataset, load_dataset
+
 
 def load_gsm8k_data(data_path):
     data = {"question":[], "answer":[]}
@@ -22,6 +24,10 @@ def load_synthetic_data(dataset_file):
             data["incorrect_predictions"].append(line["incorrect_predictions"])
             data["original_answer"].append(line["original_answer"])
     return data
+
+def load_HF_data(dataset_repo, hf_token):
+    dataset = load_dataset(dataset_repo, token = hf_token)
+    return dataset
 
 def load_prompt(prompt_path):
       with open(prompt_path, "r", encoding = "utf-8") as f:
@@ -66,3 +72,8 @@ class DatasetProcessor:
 
             #model_inputs["labels"] = model_inputs["input_ids"]
             return model_inputs
+    
+    def dpo_preprocessor_function(self, examples):
+            
+            pass
+            
