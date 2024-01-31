@@ -126,22 +126,20 @@ class Trainer:
             return weighted_loss
         elif "dpo" in self.training_args.training_mode:
             # flatten the inputs
-            inputs["input_ids"] = inputs["input_ids"].flatten(0, 1)
-            inputs["token_type_ids"] = inputs["token_type_ids"].flatten(0, 1)
-            inputs["reference_logits"] = inputs["reference_logits"].flatten(0, 1)
 
             shift_labels = inputs["input_ids"][..., 1:].contiguous()
             shift_logits = logits[..., :-1, :].contiguous()
             shift_token_type_ids = inputs["token_type_ids"][..., 1:]
             logprobs = self.calculate_logprobs(shift_logits, shift_labels, shift_token_type_ids, average_log_prob)
-            # split the logprobs such that every even in the first dim is "chosen" and every odd is "not chosen"
-            policy_chosen_logprobs = logprobs[::2]
-            policy_not_chosen_logprobs = logprobs[1::2]
+            # split the logprobs such that every the first half is "chosen" and the second half is "not chosen"
+            policy_chosen_logprobs = logprobs[:logprobs.shape[0]//2]
+            policy_not_chosen_logprobs = logprobs[logprobs.shape[0]//2:]
             reference_logits = inputs["reference_logits"]
             reference_logprobs = self.calculate_logprobs(reference_logits, shift_labels, shift_token_type_ids, average_log_prob)
-            # split the logprobs such that every even is "chosen" and every odd is "not chosen"
-            reference_chosen_logprobs = reference_logprobs[::2]
-            reference_not_chosen_logprobs = reference_logprobs[1::2]
+
+            reference_chosen_logprobs = reference_logprobs[:reference_logprobs.shape[0]//2]
+            reference_not_chosen_logprobs = reference_logprobs[reference_logprobs.shape[0]//2:]
+
             policy_ratio = policy_chosen_logprobs - policy_not_chosen_logprobs
             reference_ratio = reference_chosen_logprobs - reference_not_chosen_logprobs
             policy_reference_difference = policy_ratio - reference_ratio
@@ -184,12 +182,18 @@ class Trainer:
     def train(self):
         self.model.train()
         completed_steps = 0
+        if "dpo" in self.training_args.training_mode:
+            ref_model = self.model.get_base_model()
         for epoch in range(self.training_args.num_train_epochs):
             for step, batch in tqdm(
                 enumerate(self.train_dataloader, start=1), total=len(self.train_dataloader)
             ):
                 if "dpo" in self.training_args.training_mode:
-                    batch["input_ids"] = batch["input_ids"].flatten(0, 1)
+                    batch["input_ids"] = batch["input_ids"].flatten(0,1)
+                    batch["token_type_ids"] = batch["token_type_ids"].flatten(0,1)
+                    with torch.no_grad():
+                        reference_logits = ref_model(batch["input_ids"]).logits
+                        batch["reference_logits"] = reference_logits
                 logits = self.model(batch["input_ids"]).logits
                 loss = self.calc_loss(batch, logits, True)
                 if step % 10 == 0:
@@ -250,14 +254,14 @@ def train_model(args):
 
     if data_type == "original":
         dataset = Dataset.from_dict(load_gsm8k_data(data_path))
-    elif data_type == "synthetic":
+    elif data_type in ["synthetic", "dpo"]:
         dataset = Dataset.from_dict(load_synthetic_data(data_path))
-    elif data_type == "hf":
-        dataset = load_HF_data(data_path, HF_TOKEN)
+    #elif data_type == "hf":
+    #    dataset = load_HF_data(data_path, HF_TOKEN)
     
     model = AutoModelForCausalLM.from_pretrained(
           model_name, device_map = "auto",trust_remote_code=True,
-          token = HF_TOKEN,
+          #token = HF_TOKEN,
           #torch_dtype="auto",
           #revision = "834565c23f9b28b96ccbeabe614dd906b6db551a"
         )

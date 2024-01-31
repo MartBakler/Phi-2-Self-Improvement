@@ -74,11 +74,27 @@ class DatasetProcessor:
             return model_inputs
     
     def dpo_preprocessor_function(self, examples):
-            
             # take the tokenizer_pos_outputs and tokenizer_neg_outputs batch_ids and stack them such that the first dim is 2
-            #examples["input_ids"] = torch.stack([examples["tokenizer_pos_outputs"]["input_ids"], examples["tokenizer_neg_outputs"]["input_ids"]], dim = 0)
-            examples["input_ids"] = torch.stack([examples["tokenizer_pos_outputs"]["input_ids"], examples["tokenizer_neg_outputs"]["input_ids"]], dim = 0)
-            examples["token_type_ids"] = torch.stack([examples["tokenizer_pos_outputs"]["token_type_ids"], examples["tokenizer_neg_outputs"]["token_type_ids"]], dim = 0)
-            examples["reference_logits"] = torch.stack([examples["pos_logits"], examples["neg_logits"]], dim = 0)
-            return examples
+            pos_inputs = [(self.sft_generation_prompt.format(question = examples["question"][idx]), examples["correct_predictions"][idx][0] + self.tokenizer.eos_token) for idx in range(len(examples["question"]))
+                          if (len(examples["incorrect_predictions"][idx]) > 0 and len(examples["correct_predictions"][idx]) > 0)]
+            neg_inputs = [(self.sft_generation_prompt.format(question = examples["question"][idx]), examples["incorrect_predictions"][idx][0] + self.tokenizer.eos_token) for idx in range(len(examples["question"]))
+                          if (len(examples["incorrect_predictions"][idx]) > 0 and len(examples["correct_predictions"][idx]) > 0)]
+
+            model_inputs = self.tokenizer(pos_inputs, padding="max_length",
+                                                 max_length=384, truncation=True,
+                                                 return_token_type_ids=True,
+                                                return_tensors = "pt")
+            tokenizer_neg_outputs = self.tokenizer(neg_inputs, padding="max_length",
+                                                 max_length=384, truncation=True,
+                                                 return_token_type_ids=True,
+                                                return_tensors = "pt")
+            # concatenate the pos and neg inputs such that its batch_size x 2 x max_length
+            model_inputs["input_ids"] = torch.cat((model_inputs["input_ids"].unsqueeze(1), tokenizer_neg_outputs["input_ids"].unsqueeze(1)), dim = 1)
+            model_inputs["attention_mask"] = torch.cat((model_inputs["attention_mask"].unsqueeze(1), tokenizer_neg_outputs["attention_mask"].unsqueeze(1)), dim = 1)
+            model_inputs["token_type_ids"] = torch.cat((model_inputs["token_type_ids"].unsqueeze(1), tokenizer_neg_outputs["token_type_ids"].unsqueeze(1)), dim = 1)
+
+
+            #model_inputs["tokenizer_pos_inputs"] = pos_inputs
+            #model_inputs["tokenizer_neg_inputs"] = neg_inputs
+            return model_inputs
             
