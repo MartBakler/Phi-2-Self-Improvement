@@ -2,7 +2,7 @@ import os
 import json
 import random
 from datasets import Dataset, load_dataset
-
+import torch
 
 def load_gsm8k_data(data_path):
     data = {"question":[], "answer":[]}
@@ -75,5 +75,10 @@ class DatasetProcessor:
     
     def dpo_preprocessor_function(self, examples):
             
-            pass
+            # take the tokenizer_pos_outputs and tokenizer_neg_outputs batch_ids and stack them such that the first dim is 2
+            #examples["input_ids"] = torch.stack([examples["tokenizer_pos_outputs"]["input_ids"], examples["tokenizer_neg_outputs"]["input_ids"]], dim = 0)
+            examples["input_ids"] = torch.stack([examples["tokenizer_pos_outputs"]["input_ids"], examples["tokenizer_neg_outputs"]["input_ids"]], dim = 0)
+            examples["token_type_ids"] = torch.stack([examples["tokenizer_pos_outputs"]["token_type_ids"], examples["tokenizer_neg_outputs"]["token_type_ids"]], dim = 0)
+            examples["reference_logits"] = torch.stack([examples["pos_logits"], examples["neg_logits"]], dim = 0)
+            return examples
             

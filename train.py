@@ -7,7 +7,7 @@ import wandb
 import os
 from torch.optim import AdamW
 from datasets import Dataset
-from data_utils import load_gsm8k_data, load_synthetic_data, DatasetProcessor
+from data_utils import load_gsm8k_data, load_synthetic_data, DatasetProcessor, load_HF_data
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from torch.utils.data.dataloader import DataLoader
 from torch.nn import CrossEntropyLoss
@@ -109,10 +109,10 @@ class Trainer:
                     logits,
                     average_log_prob = False):
         # Shift so that tokens < n predict n
-        shift_labels = inputs["input_ids"][..., 1:].contiguous()
-        shift_logits = logits[..., :-1, :].contiguous()
-        shift_token_type_ids = inputs["token_type_ids"][..., 1:]
         if "sft" in self.training_args.training_mode:
+            shift_labels = inputs["input_ids"][..., 1:].contiguous()
+            shift_logits = logits[..., :-1, :].contiguous()
+            shift_token_type_ids = inputs["token_type_ids"][..., 1:]
             flattened_token_type_ids = shift_token_type_ids.flatten()
             # Calculate per-token loss
             loss_fct = CrossEntropyLoss(reduction='none')
@@ -125,8 +125,16 @@ class Trainer:
             weighted_loss = loss_per_sample.mean()
             return weighted_loss
         elif "dpo" in self.training_args.training_mode:
+            # flatten the inputs
+            inputs["input_ids"] = inputs["input_ids"].flatten(0, 1)
+            inputs["token_type_ids"] = inputs["token_type_ids"].flatten(0, 1)
+            inputs["reference_logits"] = inputs["reference_logits"].flatten(0, 1)
+
+            shift_labels = inputs["input_ids"][..., 1:].contiguous()
+            shift_logits = logits[..., :-1, :].contiguous()
+            shift_token_type_ids = inputs["token_type_ids"][..., 1:]
             logprobs = self.calculate_logprobs(shift_logits, shift_labels, shift_token_type_ids, average_log_prob)
-            # split the logprobs such that every even is "chosen" and every odd is "not chosen"
+            # split the logprobs such that every even in the first dim is "chosen" and every odd is "not chosen"
             policy_chosen_logprobs = logprobs[::2]
             policy_not_chosen_logprobs = logprobs[1::2]
             reference_logits = inputs["reference_logits"]
@@ -180,6 +188,8 @@ class Trainer:
             for step, batch in tqdm(
                 enumerate(self.train_dataloader, start=1), total=len(self.train_dataloader)
             ):
+                if "dpo" in self.training_args.training_mode:
+                    batch["input_ids"] = batch["input_ids"].flatten(0, 1)
                 logits = self.model(batch["input_ids"]).logits
                 loss = self.calc_loss(batch, logits, True)
                 if step % 10 == 0:
@@ -242,6 +252,8 @@ def train_model(args):
         dataset = Dataset.from_dict(load_gsm8k_data(data_path))
     elif data_type == "synthetic":
         dataset = Dataset.from_dict(load_synthetic_data(data_path))
+    elif data_type == "hf":
+        dataset = load_HF_data(data_path, HF_TOKEN)
     
     model = AutoModelForCausalLM.from_pretrained(
           model_name, device_map = "auto",trust_remote_code=True,
@@ -262,7 +274,10 @@ def train_model(args):
                                           r"prompts\sft_eval.txt",
                                           args.training_mode)
     dataset = dataset.shuffle(seed = 42)
-    tokenized_dataset = dataset.map(dataset_processor.training_preprocessor_function, batched=True, remove_columns=dataset.column_names)
+    if args.training_mode == "dpo":
+         tokenized_dataset = dataset.map(dataset_processor.dpo_preprocessor_function, batched=True, remove_columns=dataset.column_names["train"])
+    else:
+        tokenized_dataset = dataset.map(dataset_processor.training_preprocessor_function, batched=True, remove_columns=dataset.column_names)
     tokenized_dataset.set_format("torch")
     train_dataloader = DataLoader(tokenized_dataset, batch_size=args.per_device_train_batch_size, shuffle=True)
     print(len(train_dataloader))
