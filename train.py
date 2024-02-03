@@ -216,22 +216,6 @@ class Trainer:
                     self.lr_scheduler.step()
                     self.optimizer.zero_grad()
                     completed_steps += 1
-                #if (step % (eval_steps * gradient_accumulation_steps)) == 0:
-                #    eval_loss, perplexity, avg_reward, predictions = evaluate()
-                #    accelerator.print({"loss/eval": eval_loss, "perplexity": perplexity, "avg_reward": avg_reward})
-                #    language_model.train()
-                #    accelerator.wait_for_everyone()
-                #    unwrapped_model = accelerator.unwrap_model(language_model)
-                #    # make a new directory in the output dir with current step
-                #    if intermediate_eval:
-                #      step_output_dir = os.path.join(output_dir, f"step_{completed_steps}")
-                #      os.mkdir(step_output_dir)
-                #      # save the predictions
-                #      with open(os.path.join(step_output_dir, "predictions.json"), "w") as f:
-                #          json.dump(predictions, f)
-                #    if accelerator.is_main_process and save_model:
-                #        model.tokenizer.save_pretrained(step_output_dir)
-                #        unwrapped_model.save_pretrained(step_output_dir, save_function=accelerator.save)
         wandb.finish()
         if self.training_args.upload_model:
             self.upload_model()
@@ -256,16 +240,14 @@ def train_model(args):
         dataset = Dataset.from_dict(load_gsm8k_data(data_path))
     elif data_type in ["synthetic", "dpo"]:
         dataset = Dataset.from_dict(load_synthetic_data(data_path))
-    #elif data_type == "hf":
-    #    dataset = load_HF_data(data_path, HF_TOKEN)
+    elif data_type == "hf":
+        dataset = load_HF_data(data_path, HF_TOKEN)
     
     model = AutoModelForCausalLM.from_pretrained(
           model_name, device_map = "auto",trust_remote_code=True,
-          #token = HF_TOKEN,
+          token = HF_TOKEN,
           #torch_dtype="auto",
-          #revision = "834565c23f9b28b96ccbeabe614dd906b6db551a"
         )
-    
     tokenizer = AutoTokenizer.from_pretrained(
       model_name, device_map = "auto",
       #padding_side="left",
@@ -279,7 +261,7 @@ def train_model(args):
                                           args.training_mode)
     dataset = dataset.shuffle(seed = 42)
     if args.training_mode == "dpo":
-         tokenized_dataset = dataset.map(dataset_processor.dpo_preprocessor_function, batched=True, remove_columns=dataset.column_names["train"])
+         tokenized_dataset = dataset.map(dataset_processor.dpo_preprocessor_function, batched=True, remove_columns=dataset.column_names)
     else:
         tokenized_dataset = dataset.map(dataset_processor.training_preprocessor_function, batched=True, remove_columns=dataset.column_names)
     tokenized_dataset.set_format("torch")
@@ -291,6 +273,3 @@ def train_model(args):
                     train_dataloader)
     trainer.train()
 
-
-if __name__ == "__main__":
-    train_model()

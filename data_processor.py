@@ -75,18 +75,13 @@ def load_data_new_format(data_path):
              #remove everything between < and > 
               final_prediction = re.sub("<<.*?>>", "", final_prediction)
           incorrect_predictions.append(final_prediction)
-        if len(correct_predicions) ==0 or len(incorrect_predictions) ==0:
+        if len(correct_predicions) == 0 or len(incorrect_predictions) == 0:
            continue
         dataset.append({"question": datapoint["question"],
                          "original_answer": datapoint["answer"],
                           "correct_predictions": correct_predicions,
                           "incorrect_predictions": incorrect_predictions})
         
-      #with open(dataset_file, "r") as f:
-      #  for line in f:
-      #      line = json.loads(line)
-      #      data["question"].append(line["question"])
-      #      data["answer"].append(line["answer"].replace("####", "FINAL ANSWER:"))
     assert(list(set(rewards)) == [1])
     return dataset
 
