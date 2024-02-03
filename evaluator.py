@@ -10,7 +10,7 @@ class Evaluator():
         self.majority_vote_confidence = majority_vote_confidence
 
 
-    def evaluate_batch(self, candidates, reference, mode, evaluations = None, access_to_gold_truth = True):
+    def evaluate_batch(self, candidates, reference, mode, evaluations = None):
         if mode in ["eval-top16", "eval-top1"]:
           reward  = self.calculate_reward(candidates, reference)
           return {}, reward
@@ -122,7 +122,9 @@ class Evaluator():
             if final_answer not in answer_counts:
               answer_counts[final_answer] = []
             answer_counts[final_answer].append(candidate)
-            
+        # # check that answer_counts isnt empty sequence
+        if len(answer_counts) == 0:
+          return {1: [], 0: []}
         most_common_answer = max(answer_counts, key=lambda x: len(answer_counts[x]))
         chosen_answer_dict[1] = answer_counts[most_common_answer]
         chosen_answer_dict[0] = [x for x in candidates if x not in chosen_answer_dict[1]]

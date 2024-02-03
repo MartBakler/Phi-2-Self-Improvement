@@ -111,8 +111,8 @@ def run_inference(data_path,
         model_name,
         mode = "eval-top1",
         datapoint_start_idx = 0,
-        datapoint_end_idx = -1,
-        access_to_gold_truth = True):
+        datapoint_end_idx = -1
+        ):
   # load in the data
   dataset = Dataset.from_dict(load_gsm8k_data(data_path))
   generator = Generator(
@@ -170,7 +170,7 @@ def run_inference(data_path,
                                               batch[idx]["answer"],
                                               mode,
                                               output_confidences[idx],
-                                              access_to_gold_truth = access_to_gold_truth)
+                                              )
         if reward == -1:
            continue
         if mode.startswith("data_gen"):
