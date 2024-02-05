@@ -30,7 +30,7 @@ First using the original Phi-2 in a 5-shot manner, a dataset of 1000 synthetic m
 |DPO (Dataset 2)     | majority vote (16)  | TBD%                 |
 
 
-Interesting results:-- TBD
+Interesting results: As can be seen, only training on the synthetic solutions does increase the performance on test set significantly and steadily. Thus the results shown in the above paper do generalise to a smaller model as well.
 
 ## Experiment 2 - Training Phi 2 on its own answer generations and evaluations 
 
@@ -54,7 +54,7 @@ Similarly to the first experiment, using the original Phi-2 in a 5-shot manner, 
 |SFT Dataset 2     | highest confidence best of 1 (16)      | 69%                |
 |SFT Dataset 3     | 0-shot, best of 1                      | 63%                |
 |SFT Dataset 3     | majority vote (16)                     | 73%                |
-|SFT Dataset 4     | 0-shot, best of 1                      | 64%                |
+|SFT Dataset 4     | 0-shot, best of 1                      | 63%                |
 |SFT Dataset 4     | majority vote (16)                     | 72%                |
 |SFT Dataset 4     | majority vote (16) + evaluation filter | 74%                |
 |SFT Dataset 4     | highest confidence best of 1 (16)      | 67%                |
@@ -62,4 +62,10 @@ Similarly to the first experiment, using the original Phi-2 in a 5-shot manner, 
 |DPO (Dataset 4)                 | majority vote (16)       | TBD%                 |
 
 
-Interesting results:-- TBD
+Interesting results: Multiple interesting results can be seen here
+
+* Training on solution generation and evaluation tasks at the same time minimally reduces model performance on the solution generation task compared to training only on that one task
+
+* Using the evaluation confidences does increase performance of top-1 answer evaluation (64% --> 69%) and majority voting evaluation (72%--> 75%) 
+
+* Using only the high confidence outputs as a reward signal (fully synthetic data) after finetuning on the multi-task target is essentially the same as training on the "correct" solutions (majority vote 72 vs 73, top-1 64 vs 63). This shows this method could be used to scale up the datasets massively and increase performance by training on only synthetic data.
