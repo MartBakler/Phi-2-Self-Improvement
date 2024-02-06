@@ -5,12 +5,14 @@ from datasets import Dataset, load_dataset
 import torch
 
 def load_gsm8k_data(data_path):
-    data = {"question":[], "answer":[]}
+    data = {"question":[], "correct_predictions":[], "original_answer": [], "incorrect_predictions":[]}
     with open(data_path, "r", encoding = "utf-8") as f:
         for line in f:
             line = json.loads(line)
             data["question"].append(line["question"])
-            data["answer"].append(line["answer"].replace("####", "FINAL ANSWER:"))
+            data["correct_predictions"].append([line["answer"].replace("####", "FINAL ANSWER:")])
+            data["incorrect_predictions"].append([])
+            data["original_answer"].append(line["answer"].replace("####", "FINAL ANSWER:"))
     return data
 
 
