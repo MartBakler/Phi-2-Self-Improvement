@@ -15,7 +15,7 @@ def get_args():
     parser.add_argument("--wandb_project_name", type=str, default="default_project")
     parser.add_argument("--wandb_run_name", type=str, default="default_training_run")
     parser.add_argument("--hf_repo_name", type=str, default="default_finetuned_model")
-    parser.add_argument("--dataset_type", type=str, default="dpo")
+    parser.add_argument("--dataset_type", type=str, default="synthetic")
     parser.add_argument("--per_device_train_batch_size", type=int, default=4)
     parser.add_argument("--gradient_accumulation_steps", type=int, default=10)
     parser.add_argument("--learning_rate", type=float, default=2e-4)
@@ -24,6 +24,9 @@ def get_args():
     parser.add_argument("--lora_r", type=int, default=128)
     parser.add_argument("--lora_alpha", type=float, default=256)
     parser.add_argument("--lora_target_modules", type=list, default=[
+            "q_proj",
+             "k_proj",
+             "v_proj"
              "dense",
         ])
     parser.add_argument("--dpo_beta", type=float, default=0.1)
