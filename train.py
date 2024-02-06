@@ -17,10 +17,6 @@ from tqdm import tqdm
 import torch
 from peft import prepare_model_for_kbit_training, LoraConfig, get_peft_model
 
-#TODO
-# wandb,
-# model saving and uplodaing in fp16
-# change in data format needs to be compatible with original data training
 
 
 HF_TOKEN = ""
@@ -40,7 +36,6 @@ def print_trainable_parameters(model):
     )
 
 
-# login into wandb with wandb login
 
 
 class Trainer:
