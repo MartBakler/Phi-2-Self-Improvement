@@ -32,7 +32,7 @@ The results are seen below for the following sampling strategies -- best-of-1, b
 |DPO (Dataset 2)     | majority vote (16)  | TBD%                 |
 
 
-Interesting results: As can be seen, only training on the synthetic solutions does increase the performance on test set significantly and steadily. Thus the results shown in the above paper do generalise to smaller models as well.
+**Interesting results**: As can be seen, only training on the synthetic solutions does increase the performance on test set significantly and steadily. Thus the results shown in the above paper do generalise to smaller models as well.
 
 ## Experiment 2 - Training Phi 2 on its own answer generations and evaluations 
 
@@ -68,7 +68,7 @@ The results are seen below for the following sampling strategies -- best-of-1, b
 |DPO (Dataset 4)   | majority vote (16)                     | TBD%               |
 
 
-Interesting results: Multiple interesting results can be seen here
+**Interesting results**: Multiple interesting results can be seen here
 
 * Training on solution generation and evaluation tasks at the same time minimally reduces model performance on the solution generation task compared to training only on that one task
 
