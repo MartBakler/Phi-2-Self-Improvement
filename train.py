@@ -58,8 +58,8 @@ class Trainer:
         self.accelerator = Accelerator(fsdp_plugin=fsdp_plugin,
                                   mixed_precision=self.training_args.mixed_prec_training
                                   )
-        self.initialise_optimizer()
         self.prepare_peft_model()
+        self.initialise_optimizer()
         self.initialise_wandb
         self.model, self.optimizer, self.train_dataloader, = self.accelerator.prepare(
         self.model, self.optimizer, self.train_dataloader
