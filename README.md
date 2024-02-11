@@ -2,9 +2,9 @@
 
 ## Introduction 
 
-This is repo for experimenting with the self-training capabilities of the Microsoft Phi-2 language model. The different experiments are brought out in their respective sections and all are ran on the GSM8K dataset using the original Phi-2 model. There have been multiple papers on different self-training methodologies but none of them on this small scale (2.7B model). Training was done with Pytorch, Peft (for applying lora weights) and HF Accelerate,  and inference was done with VLLM and some custom sampling code for GMS8K
+This is repo for experimenting with the self-training capabilities of the Microsoft Phi-2 language model. The different experiments are brought out in their respective sections and all are ran on the GSM8K dataset using the original Phi-2 model. There have been multiple papers on different self-training methodologies (brought out below) but none of them on this small scale (2.7B model). Training was done with Pytorch, Peft (for applying lora weights) and HF Accelerate,  and inference was done with VLLM and some custom sampling code for GMS8K
 
-Note: The original numbers Phi-2 reported from the blogpost are using code generation. I do not use code generation or code evaluation in any of the experiments, all calculations are needed to be done by the LLM itself
+Note: The original numbers Phi-2 reported on GMS8K from the blogpost are using code generation. I do not use code generation or code evaluation in any of the experiments, all calculations are needed to be done by the LLM itself
 
 
 ## Experiment 1 - Training Phi 2 on its own answer generations
