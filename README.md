@@ -36,7 +36,7 @@ The results are seen below for the following sampling strategies -- best-of-1, b
 
 ## Experiment 2 - Training Phi 2 on its own answer generations and evaluations 
 
-This experiment combines the output answer generation and evaluation of correct and incorrect answers. Lately a couple of papers have been testing the same premise and have been showing good results ([Self-Rewarding Language Models](https://arxiv.org/pdf/2401.10020.pdf), [Adaptation with Self-Evaluation to Improve Selective Prediction in LLMs](https://aclanthology.org/2023.findings-emnlp.345.pdf)) 
+This experiment combines the output answer generation and evaluation of correct and incorrect answers. Lately a couple of papers have been testing the same premise and have been showing good results ([Self-Rewarding Language Models](https://arxiv.org/pdf/2401.10020.pdf), [Adaptation with Self-Evaluation to Improve Selective Prediction in LLMs](https://aclanthology.org/2023.findings-emnlp.345.pdf)), [V-STaR: Training Verifiers for Self-Taught Reasoners](https://arxiv.org/pdf/2402.06457.pdf). All of them have used larger language models (7B or above) than the 2.7B Phi
 
 Similarly to the first experiment, using the original Phi-2 in a 5-shot manner, a dataset of 1000 synthetic mathematical solutions are generated using the GSM8K training questions. For each question, both correct and incorrect generations are saved. Then the language model is trained in a SFT way on 2 tasks - Generation of correct answers to a question and labelling answer traces either correct or incorrect. This essentially results in a model being a generator and also a reward model. 
 
