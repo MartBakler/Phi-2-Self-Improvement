@@ -1,4 +1,4 @@
-# Phi-2-Self-Training
+# Improving Phi-2 Training with Self-Generated Data
 
 ## Introduction 
 
